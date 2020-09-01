@@ -55,7 +55,7 @@ const set<string> RUST_RESERVED_WORDS_SET(
 );
 
 static const string SYNC_CLIENT_GENERIC_BOUND_VARS("<IP, OP>");
-static const string SYNC_CLIENT_GENERIC_BOUNDS("where IP: TInputProtocol, OP: TOutputProtocol");
+static const string SYNC_CLIENT_GENERIC_BOUNDS("where IP: TAsyncInputProtocol, OP: TAsyncOutputProtocol");
 
 // FIXME: extract common TMessageIdentifier function
 // FIXME: have to_rust_type deal with Option
@@ -355,7 +355,7 @@ private:
 
   string handler_successful_return_struct(t_function* tfunc);
 
-  // Writes the result of `render_thrift_error_struct` wrapped in an `Err(thrift::Error(...))`.
+  // Writes the result of `render_thrift_error_struct` wrapped in an `Err(async_thrift::Error(...))`.
   void render_thrift_error(
     const string& error_kind,
     const string& error_struct,
@@ -363,7 +363,7 @@ private:
     const string& error_message
   );
 
-  // Write a thrift::Error variant struct. Error structs take the form:
+  // Write a async_thrift::Error variant struct. Error structs take the form:
   // ```
   // pub struct error_struct {
   //   kind: sub_error_kind,
@@ -554,9 +554,9 @@ void t_rs_generator::render_attributes_and_includes() {
   f_gen_ << endl;
 
   // add standard includes
-  f_gen_ << "extern crate thrift;" << endl;
+  f_gen_ << "extern crate async_thrift;" << endl;
   f_gen_ << endl;
-  f_gen_ << "use thrift::OrderedFloat;" << endl;
+//  f_gen_ << "use async_thrift::OrderedFloat;" << endl;
   f_gen_ << "use std::cell::RefCell;" << endl;
   f_gen_ << "use std::collections::{BTreeMap, BTreeSet};" << endl;
   f_gen_ << "use std::convert::{From, TryFrom};" << endl;
@@ -566,14 +566,16 @@ void t_rs_generator::render_attributes_and_includes() {
   f_gen_ << "use std::fmt::{Display, Formatter};" << endl;
   f_gen_ << "use std::rc::Rc;" << endl;
   f_gen_ << endl;
-  f_gen_ << "use thrift::{ApplicationError, ApplicationErrorKind, ProtocolError, ProtocolErrorKind, TThriftClient};" << endl;
-  f_gen_ << "use thrift::protocol::{TFieldIdentifier, TListIdentifier, TMapIdentifier, TMessageIdentifier, TMessageType, TInputProtocol, TOutputProtocol, TSetIdentifier, TStructIdentifier, TType};" << endl;
-  f_gen_ << "use thrift::protocol::field_id;" << endl;
-  f_gen_ << "use thrift::protocol::verify_expected_message_type;" << endl;
-  f_gen_ << "use thrift::protocol::verify_expected_sequence_number;" << endl;
-  f_gen_ << "use thrift::protocol::verify_expected_service_call;" << endl;
-  f_gen_ << "use thrift::protocol::verify_required_field_exists;" << endl;
-  f_gen_ << "use thrift::server::TProcessor;" << endl;
+  f_gen_ << "use async_thrift::{ApplicationError, ApplicationErrorKind, ProtocolError, ProtocolErrorKind, TThriftClient};" << endl;
+  f_gen_ << "use async_thrift::protocol::{TFieldIdentifier, TListIdentifier, TMapIdentifier, TMessageIdentifier, TMessageType, TAsyncInputProtocol, TAsyncOutputProtocol, TSetIdentifier, TStructIdentifier, TType};" << endl;
+  f_gen_ << "use async_thrift::protocol::field_id;" << endl;
+  f_gen_ << "use async_thrift::protocol::verify_expected_message_type;" << endl;
+  f_gen_ << "use async_thrift::protocol::verify_expected_sequence_number;" << endl;
+  f_gen_ << "use async_thrift::protocol::verify_expected_service_call;" << endl;
+  f_gen_ << "use async_thrift::protocol::verify_required_field_exists;" << endl;
+  f_gen_ << "use async_trait::async_trait;" << endl;
+  // TODO use self::async_thrift ???
+  f_gen_ << "use self::async_thrift::server::TAsyncProcessor;" << endl;
   f_gen_ << endl;
 
   // add all the program includes
@@ -905,7 +907,7 @@ void t_rs_generator::render_enum_impl(const string& enum_name) {
 
   f_gen_
     << indent()
-    << "pub fn write_to_out_protocol(&self, o_prot: &mut dyn TOutputProtocol) -> thrift::Result<()> {"
+    << "pub fn write_to_out_protocol(&self, o_prot: &mut dyn TOutputProtocol) -> async_thrift::Result<()> {"
     << endl;
   indent_up();
   f_gen_ << indent() << "o_prot.write_i32(*self as i32)" << endl;
@@ -914,7 +916,7 @@ void t_rs_generator::render_enum_impl(const string& enum_name) {
 
   f_gen_
     << indent()
-    << "pub fn read_from_in_protocol(i_prot: &mut dyn TInputProtocol) -> thrift::Result<" << enum_name << "> {"
+    << "pub fn read_from_in_protocol(i_prot: &mut dyn TInputProtocol) -> async_thrift::Result<" << enum_name << "> {"
     << endl;
   indent_up();
 
@@ -933,7 +935,7 @@ void t_rs_generator::render_enum_conversion(t_enum* tenum, const string& enum_na
   f_gen_ << "impl TryFrom<i32> for " << enum_name << " {" << endl;
   indent_up();
 
-  f_gen_ << indent() << "type Error = thrift::Error;";
+  f_gen_ << indent() << "type Error = async_thrift::Error;";
 
   f_gen_ << indent() << "fn try_from(i: i32) -> Result<Self, Self::Error> {" << endl;
   indent_up();
@@ -1060,11 +1062,11 @@ void t_rs_generator::render_exception_struct_error_trait_impls(const string& str
   f_gen_ << endl;
 
   // convert::From trait
-  f_gen_ << "impl From<" << struct_name << "> for thrift::Error {" << endl;
+  f_gen_ << "impl From<" << struct_name << "> for async_thrift::Error {" << endl;
   indent_up();
   f_gen_ << indent() << "fn from(e: " << struct_name << ") -> Self {" << endl;
   indent_up();
-  f_gen_ << indent() << "thrift::Error::User(Box::new(e))" << endl;
+  f_gen_ << indent() << "async_thrift::Error::User(Box::new(e))" << endl;
   indent_down();
   f_gen_ << indent() << "}" << endl;
   indent_down();
@@ -1288,7 +1290,7 @@ void t_rs_generator::render_result_struct_to_result_method(t_struct* tstruct) {
   // maintaining a rendered branch count (while a little ugly) got me the
   // rendering I wanted with code that was reasonably understandable
 
-  f_gen_ << indent() << "fn ok_or(self) -> thrift::Result<" << rust_return_type << "> {" << endl;
+  f_gen_ << indent() << "fn ok_or(self) -> async_thrift::Result<" << rust_return_type << "> {" << endl;
   indent_up();
 
   int rendered_branch_count = 0;
@@ -1302,7 +1304,7 @@ void t_rs_generator::render_result_struct_to_result_method(t_struct* tstruct) {
 
       f_gen_ << indent() << branch_statement << " " << field_name << ".is_some() {" << endl;
       indent_up();
-      f_gen_ << indent() << "Err(thrift::Error::User(Box::new(" << field_name << ".unwrap())))" << endl;
+      f_gen_ << indent() << "Err(async_thrift::Error::User(Box::new(" << field_name << ".unwrap())))" << endl;
       indent_down();
 
       rendered_branch_count++;
@@ -1405,7 +1407,7 @@ void t_rs_generator::render_struct_sync_write(
   f_gen_
     << indent()
     << visibility_qualifier(struct_type)
-    << "async fn write_to_out_protocol(&self, o_prot: &mut dyn TOutputProtocol) -> thrift::Result<()> {"
+    << "async fn write_to_out_protocol(&self, o_prot: &mut (dyn TOutputProtocol + Send)) -> async_thrift::Result<()> {"
     << endl;
   indent_up();
 
@@ -1437,7 +1439,7 @@ void t_rs_generator::render_struct_sync_write(
 void t_rs_generator::render_union_sync_write(const string &union_name, t_struct *tstruct) {
   f_gen_
     << indent()
-    << "pub fn write_to_out_protocol(&self, o_prot: &mut dyn TOutputProtocol) -> thrift::Result<()> {"
+    << "pub fn write_to_out_protocol(&self, o_prot: &mut dyn TOutputProtocol) -> async_thrift::Result<()> {"
     << endl;
   indent_up();
 
@@ -1679,7 +1681,7 @@ void t_rs_generator::render_struct_sync_read(
   f_gen_
     << indent()
     << visibility_qualifier(struct_type)
-    << "async fn read_from_in_protocol(i_prot: &mut dyn TInputProtocol) -> thrift::Result<" << struct_name << "> {"
+    << "async fn read_from_in_protocol(i_prot: &mut (dyn TAsyncInputProtocol + Send)) -> async_thrift::Result<" << struct_name << "> {"
     << endl;
 
   indent_up();
@@ -1801,7 +1803,7 @@ void t_rs_generator::render_struct_sync_read(
 void t_rs_generator::render_union_sync_read(const string &union_name, t_struct *tstruct) {
   f_gen_
     << indent()
-    << "pub fn read_from_in_protocol(i_prot: &mut dyn TInputProtocol) -> thrift::Result<" << union_name << "> {"
+    << "pub fn read_from_in_protocol(i_prot: &mut (dyn TAsyncInputProtocol + Send)) -> async_thrift::Result<" << union_name << "> {"
     << endl;
   indent_up();
 
@@ -1903,28 +1905,28 @@ void t_rs_generator::render_type_sync_read(const string &type_var, t_type *ttype
       throw "cannot read field of type TYPE_VOID from input protocol";
     case t_base_type::TYPE_STRING:
       if (tbase_type->is_binary()) {
-        f_gen_ << indent() << "let " << type_var << " = i_prot.read_bytes()?;" << endl;
+        f_gen_ << indent() << "let " << type_var << " = i_prot.read_bytes().await?;" << endl;
       } else {
-        f_gen_ << indent() << "let " << type_var << " = i_prot.read_string()?;" << endl;
+        f_gen_ << indent() << "let " << type_var << " = i_prot.read_string().await?;" << endl;
       }
       return;
     case t_base_type::TYPE_BOOL:
-      f_gen_ << indent() << "let " << type_var << " = i_prot.read_bool()?;" << endl;
+      f_gen_ << indent() << "let " << type_var << " = i_prot.read_bool().await?;" << endl;
       return;
     case t_base_type::TYPE_I8:
-      f_gen_ << indent() << "let " << type_var << " = i_prot.read_i8()?;" << endl;
+      f_gen_ << indent() << "let " << type_var << " = i_prot.read_i8().await?;" << endl;
       return;
     case t_base_type::TYPE_I16:
-      f_gen_ << indent() << "let " << type_var << " = i_prot.read_i16()?;" << endl;
+      f_gen_ << indent() << "let " << type_var << " = i_prot.read_i16().await?;" << endl;
       return;
     case t_base_type::TYPE_I32:
-      f_gen_ << indent() << "let " << type_var << " = i_prot.read_i32()?;" << endl;
+      f_gen_ << indent() << "let " << type_var << " = i_prot.read_i32().await?;" << endl;
       return;
     case t_base_type::TYPE_I64:
-      f_gen_ << indent() << "let " << type_var << " = i_prot.read_i64()?;" << endl;
+      f_gen_ << indent() << "let " << type_var << " = i_prot.read_i64().await?;" << endl;
       return;
     case t_base_type::TYPE_DOUBLE:
-      f_gen_ << indent() << "let " << type_var << " = OrderedFloat::from(i_prot.read_double()?);" << endl;
+      f_gen_ << indent() << "let " << type_var << " = OrderedFloat::from(i_prot.read_double().await?);" << endl;
       return;
     }
   } else if (ttype->is_typedef()) {
@@ -2095,6 +2097,7 @@ void t_rs_generator::render_sync_client_trait(t_service *tservice) {
   }
 
   render_rustdoc((t_doc*) tservice);
+  f_gen_ << "#[async_trait]" << endl;
   f_gen_ << "pub trait " << rust_sync_client_trait_name(tservice) << extension << " {" << endl;
   indent_up();
 
@@ -2106,7 +2109,7 @@ void t_rs_generator::render_sync_client_trait(t_service *tservice) {
     string func_args = rust_sync_service_call_declaration(tfunc, true);
     string func_return = to_rust_type(tfunc->get_returntype());
     render_rustdoc((t_doc*) tfunc);
-    f_gen_ << indent() << "fn " << func_name <<  func_args << " -> thrift::Result<" << func_return << ">;" << endl;
+    f_gen_ << indent() << "async fn " << func_name <<  func_args << " -> async_thrift::Result<" << func_return << ">;" << endl;
   }
 
   indent_down();
@@ -2210,8 +2213,8 @@ void t_rs_generator::render_sync_client_tthriftclient_impl(const string &client_
     << " {" << endl;
   indent_up();
 
-  f_gen_ << indent() << "fn i_prot_mut(&mut self) -> &mut dyn TInputProtocol { &mut self._i_prot }" << endl;
-  f_gen_ << indent() << "fn o_prot_mut(&mut self) -> &mut dyn TOutputProtocol { &mut self._o_prot }" << endl;
+  f_gen_ << indent() << "fn i_prot_mut(&mut self) -> &mut (dyn TAsyncInputProtocol + Send) { &mut self._i_prot }" << endl;
+  f_gen_ << indent() << "fn o_prot_mut(&mut self) -> &mut (dyn TAsyncOutputProtocol + Send) { &mut self._o_prot }" << endl;
   f_gen_ << indent() << "fn sequence_number(&self) -> i32 { self._sequence_number }" << endl;
   f_gen_
     << indent()
@@ -2227,7 +2230,8 @@ void t_rs_generator::render_sync_client_process_impl(t_service* tservice) {
   string marker_extension = "" + sync_client_marker_traits_for_extension(tservice);
 
   f_gen_
-    << "impl <C: TThriftClient + " << rust_sync_client_marker_trait_name(tservice) << marker_extension << "> "
+    << "#[async_trait]" << endl
+    << "impl <C: TThriftClient + " << rust_sync_client_marker_trait_name(tservice) << marker_extension << "+ Send> "
     << rust_sync_client_trait_name(tservice)
     << " for C {" << endl;
   indent_up();
@@ -2264,7 +2268,7 @@ void t_rs_generator::render_sync_send_recv_wrapper(t_function* tfunc) {
 
   f_gen_
     << indent()
-    << "fn " << func_name <<  func_decl_args << " -> thrift::Result<" << func_return
+    << "async fn " << func_name <<  func_decl_args << " -> async_thrift::Result<" << func_return
     << "> {"
     << endl;
   indent_up();
@@ -2321,10 +2325,10 @@ void t_rs_generator::render_sync_send(t_function* tfunc) {
     << " };"
     << endl;
   // write everything over the wire
-  f_gen_ << indent() << "self.o_prot_mut().write_message_begin(&message_ident)?;" << endl;
-  f_gen_ << indent() << "call_args.write_to_out_protocol(self.o_prot_mut())?;" << endl; // written even if we have 0 args
-  f_gen_ << indent() << "self.o_prot_mut().write_message_end()?;" << endl;
-  f_gen_ << indent() << "self.o_prot_mut().flush()" << endl;
+  f_gen_ << indent() << "self.o_prot_mut().write_message_begin(&message_ident).await?;" << endl;
+  f_gen_ << indent() << "call_args.write_to_out_protocol(self.o_prot_mut()).await?;" << endl; // written even if we have 0 args
+  f_gen_ << indent() << "self.o_prot_mut().write_message_end().await?;" << endl;
+  f_gen_ << indent() << "self.o_prot_mut().flush().await" << endl;
 
   indent_down();
   f_gen_ << indent() << "}" << endl;
@@ -2334,20 +2338,20 @@ void t_rs_generator::render_sync_recv(t_function* tfunc) {
   f_gen_ << indent() << "{" << endl;
   indent_up();
 
-  f_gen_ << indent() << "let message_ident = self.i_prot_mut().read_message_begin()?;" << endl;
+  f_gen_ << indent() << "let message_ident = self.i_prot_mut().read_message_begin().await?;" << endl;
   f_gen_ << indent() << "verify_expected_sequence_number(self.sequence_number(), message_ident.sequence_number)?;" << endl;
   f_gen_ << indent() << "verify_expected_service_call(\"" << tfunc->get_name() <<"\", &message_ident.name)?;" << endl; // note: use *original* name
   // FIXME: replace with a "try" block
   f_gen_ << indent() << "if message_ident.message_type == TMessageType::Exception {" << endl;
   indent_up();
-  f_gen_ << indent() << "let remote_error = thrift::Error::read_application_error_from_in_protocol(self.i_prot_mut())?;" << endl;
-  f_gen_ << indent() << "self.i_prot_mut().read_message_end()?;" << endl;
-  f_gen_ << indent() << "return Err(thrift::Error::Application(remote_error))" << endl;
+  f_gen_ << indent() << "let remote_error = async_thrift::Error::read_application_error_from_in_protocol(self.i_prot_mut()).await?;" << endl;
+  f_gen_ << indent() << "self.i_prot_mut().read_message_end().await?;" << endl;
+  f_gen_ << indent() << "return Err(async_thrift::Error::Application(remote_error))" << endl;
   indent_down();
   f_gen_ << indent() << "}" << endl;
   f_gen_ << indent() << "verify_expected_message_type(TMessageType::Reply, message_ident.message_type)?;" << endl;
-  f_gen_ << indent() << "let result = " << service_call_result_struct_name(tfunc) << "::read_from_in_protocol(self.i_prot_mut())?;" << endl;
-  f_gen_ << indent() << "self.i_prot_mut().read_message_end()?;" << endl;
+  f_gen_ << indent() << "let result = " << service_call_result_struct_name(tfunc) << "::read_from_in_protocol(self.i_prot_mut()).await?;" << endl;
+  f_gen_ << indent() << "self.i_prot_mut().read_message_end().await?;" << endl;
   f_gen_ << indent() << "result.ok_or()" << endl;
 
   indent_down();
@@ -2380,7 +2384,7 @@ string t_rs_generator::rust_sync_service_call_invocation(t_function* tfunc, cons
     func_args << struct_to_invocation(tfunc->get_arglist(), field_prefix);
   }
 
-  func_args << ")";
+  func_args << ").await";
   return func_args.str();
 }
 
@@ -2491,7 +2495,7 @@ void t_rs_generator::render_sync_handler_trait(t_service *tservice) {
       << indent()
       << "async fn "
       << func_name <<  func_args
-      << " -> thrift::Result<" << func_return << ">;"
+      << " -> async_thrift::Result<" << func_return << ">;"
       << endl;
   }
   indent_down();
@@ -2561,7 +2565,7 @@ void t_rs_generator::render_sync_processor_definition_and_impl(t_service *tservi
     << indent()
       << "#[async_trait]" << endl
     << "impl <H: "
-    << handler_trait_name << "> TProcessor for "
+    << handler_trait_name << " + Send + Sync> TAsyncProcessor for "
     << service_processor_name
     << "<H> {"
     << endl;
@@ -2569,7 +2573,7 @@ void t_rs_generator::render_sync_processor_definition_and_impl(t_service *tservi
 
   f_gen_
     << indent()
-    << "async fn process(&self, i_prot: &mut dyn TInputProtocol, o_prot: &mut dyn TOutputProtocol) -> thrift::Result<()> {"
+    << "async fn process(&self, i_prot: &mut (dyn TAsyncInputProtocol + Send), o_prot: &mut (dyn TAsyncOutputProtocol + Send)) -> async_thrift::Result<()> {"
     << endl;
   indent_up();
 
@@ -2591,7 +2595,7 @@ void t_rs_generator::render_sync_processor_definition_and_impl(t_service *tservi
 
   indent_down();
   f_gen_ << indent() << "};" << endl;
-  f_gen_ << indent() << "thrift::server::handle_process_result(&message_ident, res, o_prot).await" << endl;
+  f_gen_ << indent() << "async_thrift::server::handle_process_result(&message_ident, res, o_prot).await" << endl;
 
   indent_down();
   f_gen_ << indent() << "}" << endl;
@@ -2616,7 +2620,7 @@ void t_rs_generator::render_sync_process_delegation_functions(t_service *tservic
       << "incoming_sequence_number: i32, "
       << "i_prot: &mut dyn TInputProtocol, "
       << "o_prot: &mut dyn TOutputProtocol) "
-      << "-> thrift::Result<()> {"
+      << "-> async_thrift::Result<()> {"
       << endl;
     indent_up();
 
@@ -2679,9 +2683,9 @@ void t_rs_generator::render_sync_process_function(t_function *tfunc, const strin
     << "<H: " << handler_type << ">"
     << "(handler: &H, "
     << sequence_number_param << ": i32, "
-    << "i_prot: &mut dyn TInputProtocol, "
-    << output_protocol_param << ": &mut dyn TOutputProtocol) "
-    << "-> thrift::Result<()> {"
+    << "i_prot: &mut (dyn TAsyncInputProtocol + Send), "
+    << output_protocol_param << ": &mut (dyn TAsyncOutputProtocol + Send)) "
+    << "-> async_thrift::Result<()> {"
     << endl;
 
   indent_up();
@@ -2693,7 +2697,7 @@ void t_rs_generator::render_sync_process_function(t_function *tfunc, const strin
     << (has_non_void_args(tfunc) ? "args" : "_")
     << " = "
     << service_call_args_struct_name(tfunc)
-    << "::read_from_in_protocol(i_prot)?;"
+    << "::read_from_in_protocol(i_prot).await?;"
     << endl;
 
   f_gen_
@@ -2754,7 +2758,7 @@ void t_rs_generator::render_sync_handler_failed(t_function *tfunc) {
   // if there are any user-defined exceptions for this service call handle them first
   if (tfunc->get_xceptions() != NULL && tfunc->get_xceptions()->get_sorted_members().size() > 0) {
     string user_err_var("usr_err");
-    f_gen_ << indent() << "thrift::Error::User(" << user_err_var << ") => {" << endl;
+    f_gen_ << indent() << "async_thrift::Error::User(" << user_err_var << ") => {" << endl;
     indent_up();
     render_sync_handler_failed_user_exception_branch(tfunc);
     indent_down();
@@ -2763,7 +2767,7 @@ void t_rs_generator::render_sync_handler_failed(t_function *tfunc) {
 
   // application error
   string app_err_var("app_err");
-  f_gen_ << indent() << "thrift::Error::Application(" << app_err_var << ") => {" << endl;
+  f_gen_ << indent() << "async_thrift::Error::Application(" << app_err_var << ") => {" << endl;
   indent_up();
   render_sync_handler_failed_application_exception_branch(tfunc, app_err_var);
   indent_down();
@@ -2873,7 +2877,7 @@ void t_rs_generator::render_sync_handler_failed_application_exception_branch(
     const string &app_err_var
 ) {
   if (tfunc->is_oneway()) {
-    f_gen_ << indent() << "Err(thrift::Error::Application(" << app_err_var << "))" << endl;
+    f_gen_ << indent() << "Err(async_thrift::Error::Application(" << app_err_var << "))" << endl;
   } else {
     render_sync_handler_send_exception_response(tfunc, app_err_var);
   }
@@ -2886,7 +2890,7 @@ void t_rs_generator::render_sync_handler_failed_default_exception_branch(t_funct
   indent_down();
   f_gen_ << indent() << "};" << endl;
   if (tfunc->is_oneway()) {
-    f_gen_ << indent() << "Err(thrift::Error::Application(ret_err))" << endl;
+    f_gen_ << indent() << "Err(async_thrift::Error::Application(ret_err))" << endl;
   } else {
     render_sync_handler_send_exception_response(tfunc, "ret_err");
   }
@@ -2901,7 +2905,7 @@ void t_rs_generator::render_sync_handler_send_exception_response(t_function *tfu
       << "incoming_sequence_number);"
       << endl;
   f_gen_ << indent() << "o_prot.write_message_begin(&message_ident).await?;" << endl;
-  f_gen_ << indent() << "thrift::Error::write_application_error_to_out_protocol(&" << err_var << ", o_prot).await?;" << endl;
+  f_gen_ << indent() << "async_thrift::Error::write_application_error_to_out_protocol(&" << err_var << ", o_prot).await?;" << endl;
   f_gen_ << indent() << "o_prot.write_message_end().await?;" << endl;
   f_gen_ << indent() << "o_prot.flush().await" << endl;
 }
@@ -2967,7 +2971,7 @@ void t_rs_generator::render_thrift_error(
 ) {
   f_gen_ << indent() << "Err(" << endl;
   indent_up();
-  f_gen_ << indent() << "thrift::Error::" << error_kind << "(" << endl;
+  f_gen_ << indent() << "async_thrift::Error::" << error_kind << "(" << endl;
   indent_up();
   render_thrift_error_struct(error_struct, sub_error_kind, error_message);
   indent_down();
