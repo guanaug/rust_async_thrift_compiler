@@ -1,14 +1,14 @@
 typedef i32 type_a
 typedef i64 type_b
 
-const i32 adder = 5;
+const i32 test_const = 5;
 
-union number {
+union Number {
     1: type_a a,
     2: type_b b
 }
 
-enum operator{
+enum Operator{
     DIVIDE = 1,
     ADD = 2
 }
@@ -18,11 +18,12 @@ exception Xecption {
     2: string message;
 }
 
-struct material {
-    1: number num;
-    2: operator op;
+struct Material {
+    1: Number num1;
+    2: Number num2;	
+    3: Operator op;
 }
 
 service CalculatorService{
-    number calculate(1: material input) throws (1: Xecption err)
+    Number calculate(1: Material input) throws (1: Xecption err)
 }
