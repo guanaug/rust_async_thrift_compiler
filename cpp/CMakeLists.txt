@@ -17,6 +17,7 @@
 
 cmake_minimum_required(VERSION 3.3)
 project("thrift-compiler" VERSION ${PACKAGE_VERSION})
+add_definitions(-std=c++11)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/thrift/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/thrift/version.h)
 
