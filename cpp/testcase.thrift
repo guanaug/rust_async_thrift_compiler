@@ -3,15 +3,14 @@ typedef i64 type_b
 
 const i32 adder = 5;
 
-union test_union{
+union number {
     1: type_a a,
     2: type_b b
 }
 
-enum numbers{
-    ONE = 1,
-    TWO = 2,
-    THREE = 3
+enum operator{
+    DIVIDE = 1,
+    ADD = 2
 }
 
 exception Xecption {
@@ -19,11 +18,11 @@ exception Xecption {
     2: string message;
 }
 
-struct nested {
-    1:test_union my_union;
-    2:numbers my_enum;
+struct material {
+    1: number num;
+    2: operator op;
 }
 
-service TestService{
-    void test_add(1: nested arg0, 2: nested arg1) throws (1: Xecption err)
+service CalculatorService{
+    number calculate(1: material input) throws (1: Xecption err)
 }
