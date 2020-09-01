@@ -907,7 +907,7 @@ void t_rs_generator::render_enum_impl(const string& enum_name) {
 
   f_gen_
     << indent()
-    << "pub async fn write_to_out_protocol(&self, o_prot: &mut dyn TAsyncOutputProtocol+Send) -> async_thrift::Result<()> {"
+    << "pub async fn write_to_out_protocol(&self, o_prot: &mut (dyn TAsyncOutputProtocol+Send)) -> async_thrift::Result<()> {"
     << endl;
   indent_up();
   f_gen_ << indent() << "o_prot.write_i32(*self as i32).await" << endl;
@@ -1439,7 +1439,7 @@ void t_rs_generator::render_struct_sync_write(
 void t_rs_generator::render_union_sync_write(const string &union_name, t_struct *tstruct) {
   f_gen_
     << indent()
-    << "pub async fn write_to_out_protocol(&self, o_prot: &mut dyn TAsyncOutputProtocol+Send) -> async_thrift::Result<()> {"
+    << "pub async fn write_to_out_protocol(&self, o_prot: &mut (dyn TAsyncOutputProtocol+Send)) -> async_thrift::Result<()> {"
     << endl;
   indent_up();
 
@@ -1813,7 +1813,7 @@ void t_rs_generator::render_union_sync_read(const string &union_name, t_struct *
   f_gen_ << indent() << "let mut received_field_count = 0;" << endl;
 
   // read the struct preamble
-  f_gen_ << indent() << "i_prot.read_struct_begin()?;" << endl;
+  f_gen_ << indent() << "i_prot.read_struct_begin().await?;" << endl;
 
   // now loop through the fields we've received
   f_gen_ << indent() << "loop {" << endl; // start loop
@@ -1855,7 +1855,7 @@ void t_rs_generator::render_union_sync_read(const string &union_name, t_struct *
   // default case (skip fields)
   f_gen_ << indent() << "_ => {" << endl;
   indent_up();
-  f_gen_ << indent() << "i_prot.skip(field_ident.field_type)?;" << endl;
+  f_gen_ << indent() << "i_prot.skip(field_ident.field_type).await?;" << endl;
   f_gen_ << indent() << "received_field_count += 1;" << endl;
   indent_down();
   f_gen_ << indent() << "}," << endl;
