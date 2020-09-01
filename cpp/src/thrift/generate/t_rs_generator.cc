@@ -907,20 +907,20 @@ void t_rs_generator::render_enum_impl(const string& enum_name) {
 
   f_gen_
     << indent()
-    << "pub fn write_to_out_protocol(&self, o_prot: &mut dyn TAsyncOutputProtocol) -> async_thrift::Result<()> {"
+    << "pub async fn write_to_out_protocol(&self, o_prot: &mut dyn TAsyncOutputProtocol+Send) -> async_thrift::Result<()> {"
     << endl;
   indent_up();
-  f_gen_ << indent() << "o_prot.write_i32(*self as i32)" << endl;
+  f_gen_ << indent() << "o_prot.write_i32(*self as i32).await" << endl;
   indent_down();
   f_gen_ << indent() << "}" << endl;
 
   f_gen_
     << indent()
-    << "pub fn read_from_in_protocol(i_prot: &mut dyn TAsyncInputProtocol) -> async_thrift::Result<" << enum_name << "> {"
+    << "pub async fn read_from_in_protocol(i_prot: &mut dyn TAsyncInputProtocol) -> async_thrift::Result<" << enum_name << "> {"
     << endl;
   indent_up();
 
-  f_gen_ << indent() << "let enum_value = i_prot.read_i32()?;" << endl;
+  f_gen_ << indent() << "let enum_value = i_prot.read_i32().await?;" << endl;
   f_gen_ << indent() << enum_name << "::try_from(enum_value)";
 
   indent_down();
@@ -1439,14 +1439,14 @@ void t_rs_generator::render_struct_sync_write(
 void t_rs_generator::render_union_sync_write(const string &union_name, t_struct *tstruct) {
   f_gen_
     << indent()
-    << "pub fn write_to_out_protocol(&self, o_prot: &mut dyn TAsyncOutputProtocol+Send) -> async_thrift::Result<()> {"
+    << "pub async fn write_to_out_protocol(&self, o_prot: &mut dyn TAsyncOutputProtocol+Send) -> async_thrift::Result<()> {"
     << endl;
   indent_up();
 
   // write struct header to output protocol
   // note: use the *original* struct name here
   f_gen_ << indent() << "let struct_ident = TStructIdentifier::new(\"" + tstruct->get_name() + "\");" << endl;
-  f_gen_ << indent() << "o_prot.write_struct_begin(&struct_ident)?;" << endl;
+  f_gen_ << indent() << "o_prot.write_struct_begin(&struct_ident).await?;" << endl;
 
   // write the enum field to the output protocol
   vector<t_field*> members = tstruct->get_sorted_members();
@@ -1474,8 +1474,8 @@ void t_rs_generator::render_union_sync_write(const string &union_name, t_struct 
   }
 
   // write struct footer to output protocol
-  f_gen_ << indent() << "o_prot.write_field_stop()?;" << endl;
-  f_gen_ << indent() << "o_prot.write_struct_end()" << endl;
+  f_gen_ << indent() << "o_prot.write_field_stop().await?;" << endl;
+  f_gen_ << indent() << "o_prot.write_struct_end().await" << endl;
 
   indent_down();
   f_gen_ << indent() << "}" << endl;
@@ -1803,7 +1803,7 @@ void t_rs_generator::render_struct_sync_read(
 void t_rs_generator::render_union_sync_read(const string &union_name, t_struct *tstruct) {
   f_gen_
     << indent()
-    << "pub fn read_from_in_protocol(i_prot: &mut (dyn TAsyncInputProtocol + Send)) -> async_thrift::Result<" << union_name << "> {"
+    << "pub async fn read_from_in_protocol(i_prot: &mut (dyn TAsyncInputProtocol + Send)) -> async_thrift::Result<" << union_name << "> {"
     << endl;
   indent_up();
 
@@ -1820,7 +1820,7 @@ void t_rs_generator::render_union_sync_read(const string &union_name, t_struct *
   indent_up();
 
   // break out if you've found the Stop field
-  f_gen_ << indent() << "let field_ident = i_prot.read_field_begin()?;" << endl;
+  f_gen_ << indent() << "let field_ident = i_prot.read_field_begin().await?;" << endl;
   f_gen_ << indent() << "if field_ident.field_type == TType::Stop {" << endl;
   indent_up();
   f_gen_ << indent() << "break;" << endl;
@@ -1862,10 +1862,10 @@ void t_rs_generator::render_union_sync_read(const string &union_name, t_struct *
 
   indent_down();
   f_gen_ << indent() << "};" << endl; // finish match
-  f_gen_ << indent() << "i_prot.read_field_end()?;" << endl;
+  f_gen_ << indent() << "i_prot.read_field_end().await?;" << endl;
   indent_down();
   f_gen_ << indent() << "}" << endl; // finish loop
-  f_gen_ << indent() << "i_prot.read_struct_end()?;" << endl; // finish reading message from wire
+  f_gen_ << indent() << "i_prot.read_struct_end().await?;" << endl; // finish reading message from wire
 
   // return the value or an error
   f_gen_ << indent() << "if received_field_count == 0 {" << endl;
@@ -1967,7 +1967,7 @@ void t_rs_generator::render_type_sync_read(const string &type_var, t_type *ttype
 void t_rs_generator::render_list_sync_read(t_list *tlist, const string &list_var) {
   t_type* elem_type = tlist->get_elem_type();
 
-  f_gen_ << indent() << "let list_ident = i_prot.read_list_begin()?;" << endl;
+  f_gen_ << indent() << "let list_ident = i_prot.read_list_begin().await?;" << endl;
   f_gen_
     << indent()
     << "let mut " << list_var << ": " << to_rust_type((t_type*) tlist)
@@ -1984,14 +1984,14 @@ void t_rs_generator::render_list_sync_read(t_list *tlist, const string &list_var
   indent_down();
 
   f_gen_ << indent() << "}" << endl;
-  f_gen_ << indent() << "i_prot.read_list_end()?;" << endl;
+  f_gen_ << indent() << "i_prot.read_list_end().await?;" << endl;
 }
 
 // Construct the rust representation of a set from the wire.
 void t_rs_generator::render_set_sync_read(t_set *tset, const string &set_var) {
   t_type* elem_type = tset->get_elem_type();
 
-  f_gen_ << indent() << "let set_ident = i_prot.read_set_begin()?;" << endl;
+  f_gen_ << indent() << "let set_ident = i_prot.read_set_begin().await?;" << endl;
   f_gen_
     << indent()
     << "let mut " << set_var << ": " << to_rust_type((t_type*) tset)
@@ -2008,7 +2008,7 @@ void t_rs_generator::render_set_sync_read(t_set *tset, const string &set_var) {
   indent_down();
 
   f_gen_ << indent() << "}" << endl;
-  f_gen_ << indent() << "i_prot.read_set_end()?;" << endl;
+  f_gen_ << indent() << "i_prot.read_set_end().await?;" << endl;
 }
 
 // Construct the rust representation of a map from the wire.
@@ -2016,7 +2016,7 @@ void t_rs_generator::render_map_sync_read(t_map *tmap, const string &map_var) {
   t_type* key_type = tmap->get_key_type();
   t_type* val_type = tmap->get_val_type();
 
-  f_gen_ << indent() << "let map_ident = i_prot.read_map_begin()?;" << endl;
+  f_gen_ << indent() << "let map_ident = i_prot.read_map_begin().await?;" << endl;
   f_gen_
     << indent()
     << "let mut " << map_var << ": " << to_rust_type((t_type*) tmap)
@@ -2035,7 +2035,7 @@ void t_rs_generator::render_map_sync_read(t_map *tmap, const string &map_var) {
   indent_down();
 
   f_gen_ << indent() << "}" << endl;
-  f_gen_ << indent() << "i_prot.read_map_end()?;" << endl;
+  f_gen_ << indent() << "i_prot.read_map_end().await?;" << endl;
 }
 
 string t_rs_generator::struct_field_read_temp_variable(t_field* tfield) {
@@ -2622,7 +2622,7 @@ void t_rs_generator::render_sync_process_delegation_functions(t_service *tservic
       << "o_prot: &mut (dyn TAsyncOutputProtocol + Send)) "
       << "-> async_thrift::Result<()> {"
       << endl;
-      
+
     indent_up();
 
     f_gen_
