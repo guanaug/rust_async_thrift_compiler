@@ -1405,14 +1405,14 @@ void t_rs_generator::render_struct_sync_write(
   f_gen_
     << indent()
     << visibility_qualifier(struct_type)
-    << "fn write_to_out_protocol(&self, o_prot: &mut dyn TOutputProtocol) -> thrift::Result<()> {"
+    << "async fn write_to_out_protocol(&self, o_prot: &mut dyn TOutputProtocol) -> thrift::Result<()> {"
     << endl;
   indent_up();
 
   // write struct header to output protocol
   // note: use the *original* struct name here
   f_gen_ << indent() << "let struct_ident = TStructIdentifier::new(\"" + tstruct->get_name() + "\");" << endl;
-  f_gen_ << indent() << "o_prot.write_struct_begin(&struct_ident)?;" << endl;
+  f_gen_ << indent() << "o_prot.write_struct_begin(&struct_ident).await?;" << endl;
 
   // write struct members to output protocol
   vector<t_field*> members = tstruct->get_sorted_members();
@@ -1427,8 +1427,8 @@ void t_rs_generator::render_struct_sync_write(
   }
 
   // write struct footer to output protocol
-  f_gen_ << indent() << "o_prot.write_field_stop()?;" << endl;
-  f_gen_ << indent() << "o_prot.write_struct_end()" << endl;
+  f_gen_ << indent() << "o_prot.write_field_stop().await?;" << endl;
+  f_gen_ << indent() << "o_prot.write_struct_end().await" << endl;
 
   indent_down();
   f_gen_ << indent() << "}" << endl;
@@ -1500,9 +1500,9 @@ void t_rs_generator::render_struct_field_sync_write(
     string let_var((actual_type->is_base_type() && !actual_type->is_string()) ? "fld_var" : "ref fld_var");
     f_gen_ << indent() << "if let Some(" << let_var << ") = " << field_var << " {" << endl;
     indent_up();
-    f_gen_ << indent() << "o_prot.write_field_begin(&" << field_ident_string << ")?;" << endl;
+    f_gen_ << indent() << "o_prot.write_field_begin(&" << field_ident_string << ").await?;" << endl;
     render_type_sync_write("fld_var", true, field_type);
-    f_gen_ << indent() << "o_prot.write_field_end()?;" << endl;
+    f_gen_ << indent() << "o_prot.write_field_end().await?;" << endl;
     f_gen_ << indent() << "()" << endl; // FIXME: remove this extraneous '()'
     indent_down();
     f_gen_ << indent() << "} else {" << endl; // FIXME: remove else branch
@@ -1517,9 +1517,9 @@ void t_rs_generator::render_struct_field_sync_write(
     indent_down();
     f_gen_ << indent() << "}" << endl;
   } else {
-    f_gen_ << indent() << "o_prot.write_field_begin(&" << field_ident_string << ")?;" << endl;
+    f_gen_ << indent() << "o_prot.write_field_begin(&" << field_ident_string << ").await?;" << endl;
     render_type_sync_write(field_var, field_var_is_ref, tfield->get_type());
-    f_gen_ << indent() << "o_prot.write_field_end()?;" << endl;
+    f_gen_ << indent() << "o_prot.write_field_end().await?;" << endl;
   }
 }
 
@@ -1532,29 +1532,29 @@ void t_rs_generator::render_type_sync_write(const string &type_var, bool type_va
     case t_base_type::TYPE_STRING: {
       string ref(type_var_is_ref ? "" : "&");
       if (tbase_type->is_binary()) {
-        f_gen_ << indent() << "o_prot.write_bytes(" + ref + type_var + ")?;" << endl;
+        f_gen_ << indent() << "o_prot.write_bytes(" + ref + type_var + ").await?;" << endl;
       } else {
-        f_gen_ << indent() << "o_prot.write_string(" + ref + type_var + ")?;" << endl;
+        f_gen_ << indent() << "o_prot.write_string(" + ref + type_var + ").await?;" << endl;
       }
       return;
     }
     case t_base_type::TYPE_BOOL:
-      f_gen_ << indent() << "o_prot.write_bool(" + type_var + ")?;" << endl;
+      f_gen_ << indent() << "o_prot.write_bool(" + type_var + ").await?;" << endl;
       return;
     case t_base_type::TYPE_I8:
-      f_gen_ << indent() << "o_prot.write_i8(" + type_var + ")?;" << endl;
+      f_gen_ << indent() << "o_prot.write_i8(" + type_var + ").await?;" << endl;
       return;
     case t_base_type::TYPE_I16:
-      f_gen_ << indent() << "o_prot.write_i16(" + type_var + ")?;" << endl;
+      f_gen_ << indent() << "o_prot.write_i16(" + type_var + ").await?;" << endl;
       return;
     case t_base_type::TYPE_I32:
-      f_gen_ << indent() << "o_prot.write_i32(" + type_var + ")?;" << endl;
+      f_gen_ << indent() << "o_prot.write_i32(" + type_var + ").await?;" << endl;
       return;
     case t_base_type::TYPE_I64:
-      f_gen_ << indent() << "o_prot.write_i64(" + type_var + ")?;" << endl;
+      f_gen_ << indent() << "o_prot.write_i64(" + type_var + ").await?;" << endl;
       return;
     case t_base_type::TYPE_DOUBLE:
-      f_gen_ << indent() << "o_prot.write_double(" + type_var + ".into())?;" << endl;
+      f_gen_ << indent() << "o_prot.write_double(" + type_var + ".into()).await?;" << endl;
       return;
     }
   } else if (ttype->is_typedef()) {
@@ -1562,7 +1562,7 @@ void t_rs_generator::render_type_sync_write(const string &type_var, bool type_va
     render_type_sync_write(type_var, type_var_is_ref, ttypedef->get_type());
     return;
   } else if (ttype->is_enum() || ttype->is_struct() || ttype->is_xception()) {
-    f_gen_ << indent() << type_var + ".write_to_out_protocol(o_prot)?;" << endl;
+    f_gen_ << indent() << type_var + ".write_to_out_protocol(o_prot).await?;" << endl;
     return;
   } else if (ttype->is_map()) {
     render_map_sync_write(type_var, type_var_is_ref, (t_map *) ttype);
@@ -1587,14 +1587,14 @@ void t_rs_generator::render_list_sync_write(const string &list_var, bool list_va
     << "&TListIdentifier::new("
     << to_rust_field_type_enum(elem_type) << ", "
     << list_var << ".len() as i32" << ")"
-    << ")?;"
+    << ").await?;"
     << endl;
 
   string ref(list_var_is_ref ? "" : "&");
   f_gen_ << indent() << "for e in " << ref << list_var << " {" << endl;
   indent_up();
   render_type_sync_write(string_container_write_variable(elem_type, "e"), true, elem_type);
-  f_gen_ << indent() << "o_prot.write_list_end()?;" << endl;
+  f_gen_ << indent() << "o_prot.write_list_end().await?;" << endl;
   indent_down();
   f_gen_ << indent() << "}" << endl;
 }
@@ -1608,14 +1608,14 @@ void t_rs_generator::render_set_sync_write(const string &set_var, bool set_var_i
     << "&TSetIdentifier::new("
     << to_rust_field_type_enum(elem_type) << ", "
     << set_var << ".len() as i32" << ")"
-    << ")?;"
+    << ").await?;"
     << endl;
 
   string ref(set_var_is_ref ? "" : "&");
   f_gen_ << indent() << "for e in " << ref << set_var << " {" << endl;
   indent_up();
   render_type_sync_write(string_container_write_variable(elem_type, "e"), true, elem_type);
-  f_gen_ << indent() << "o_prot.write_set_end()?;" << endl;
+  f_gen_ << indent() << "o_prot.write_set_end().await?;" << endl;
   indent_down();
   f_gen_ << indent() << "}" << endl;
 }
@@ -1631,7 +1631,7 @@ void t_rs_generator::render_map_sync_write(const string &map_var, bool map_var_i
     << to_rust_field_type_enum(key_type) << ", "
     << to_rust_field_type_enum(val_type) << ", "
     << map_var << ".len() as i32)"
-    << ")?;"
+    << ").await?;"
     << endl;
 
   string ref(map_var_is_ref ? "" : "&");
@@ -1639,7 +1639,7 @@ void t_rs_generator::render_map_sync_write(const string &map_var, bool map_var_i
   indent_up();
   render_type_sync_write(string_container_write_variable(key_type, "k"), true, key_type);
   render_type_sync_write(string_container_write_variable(val_type, "v"), true, val_type);
-  f_gen_ << indent() << "o_prot.write_map_end()?;" << endl;
+  f_gen_ << indent() << "o_prot.write_map_end().await?;" << endl;
   indent_down();
   f_gen_ << indent() << "}" << endl;
 }
@@ -1679,12 +1679,12 @@ void t_rs_generator::render_struct_sync_read(
   f_gen_
     << indent()
     << visibility_qualifier(struct_type)
-    << "fn read_from_in_protocol(i_prot: &mut dyn TInputProtocol) -> thrift::Result<" << struct_name << "> {"
+    << "async fn read_from_in_protocol(i_prot: &mut dyn TInputProtocol) -> thrift::Result<" << struct_name << "> {"
     << endl;
 
   indent_up();
 
-  f_gen_ << indent() << "i_prot.read_struct_begin()?;" << endl;
+  f_gen_ << indent() << "i_prot.read_struct_begin().await?;" << endl;
 
   // create temporary variables: one for each field in the struct
   const vector<t_field*> members = tstruct->get_sorted_members();
@@ -1710,7 +1710,7 @@ void t_rs_generator::render_struct_sync_read(
   indent_up();
 
   // break out if you've found the Stop field
-  f_gen_ << indent() << "let field_ident = i_prot.read_field_begin()?;" << endl;
+  f_gen_ << indent() << "let field_ident = i_prot.read_field_begin().await?;" << endl;
   f_gen_ << indent() << "if field_ident.field_type == TType::Stop {" << endl;
   indent_up();
   f_gen_ << indent() << "break;" << endl;
@@ -1735,16 +1735,16 @@ void t_rs_generator::render_struct_sync_read(
   // default case (skip fields)
   f_gen_ << indent() << "_ => {" << endl;
   indent_up();
-  f_gen_ << indent() << "i_prot.skip(field_ident.field_type)?;" << endl;
+  f_gen_ << indent() << "i_prot.skip(field_ident.field_type).await?;" << endl;
   indent_down();
   f_gen_ << indent() << "}," << endl;
 
   indent_down();
   f_gen_ << indent() << "};" << endl; // finish match
-  f_gen_ << indent() << "i_prot.read_field_end()?;" << endl;
+  f_gen_ << indent() << "i_prot.read_field_end().await?;" << endl;
   indent_down();
   f_gen_ << indent() << "}" << endl; // finish loop
-  f_gen_ << indent() << "i_prot.read_struct_end()?;" << endl; // read message footer from the wire
+  f_gen_ << indent() << "i_prot.read_struct_end().await?;" << endl; // read message footer from the wire
 
   // verify that all required fields exist
   for (members_iter = members.begin(); members_iter != members.end(); ++members_iter) {
@@ -2479,7 +2479,7 @@ void t_rs_generator::render_sync_handler_trait(t_service *tservice) {
   std::vector<t_function*>::const_iterator func_iter;
 
   render_rustdoc((t_doc*) tservice);
-  f_gen_ << "pub trait " << rust_sync_handler_trait_name(tservice) << extension << " {" << endl;
+  f_gen_ << "#[async_trait]" << endl << "pub trait " << rust_sync_handler_trait_name(tservice) << extension << " {" << endl;
   indent_up();
   for(func_iter = functions.begin(); func_iter != functions.end(); ++func_iter) {
     t_function* tfunc = (*func_iter);
@@ -2489,7 +2489,7 @@ void t_rs_generator::render_sync_handler_trait(t_service *tservice) {
     render_rustdoc((t_doc*) tfunc);
     f_gen_
       << indent()
-      << "fn "
+      << "async fn "
       << func_name <<  func_args
       << " -> thrift::Result<" << func_return << ">;"
       << endl;
@@ -2559,6 +2559,7 @@ void t_rs_generator::render_sync_processor_definition_and_impl(t_service *tservi
   // processor impl
   f_gen_
     << indent()
+      << "#[async_trait]" << endl
     << "impl <H: "
     << handler_trait_name << "> TProcessor for "
     << service_processor_name
@@ -2568,11 +2569,11 @@ void t_rs_generator::render_sync_processor_definition_and_impl(t_service *tservi
 
   f_gen_
     << indent()
-    << "fn process(&self, i_prot: &mut dyn TInputProtocol, o_prot: &mut dyn TOutputProtocol) -> thrift::Result<()> {"
+    << "async fn process(&self, i_prot: &mut dyn TInputProtocol, o_prot: &mut dyn TOutputProtocol) -> thrift::Result<()> {"
     << endl;
   indent_up();
 
-  f_gen_ << indent() << "let message_ident = i_prot.read_message_begin()?;" << endl;
+  f_gen_ << indent() << "let message_ident = i_prot.read_message_begin().await?;" << endl;
 
   f_gen_ << indent() << "let res = match &*message_ident.name {" << endl; // [sigh] explicit deref coercion
   indent_up();
@@ -2590,7 +2591,7 @@ void t_rs_generator::render_sync_processor_definition_and_impl(t_service *tservi
 
   indent_down();
   f_gen_ << indent() << "};" << endl;
-  f_gen_ << indent() << "thrift::server::handle_process_result(&message_ident, res, o_prot)" << endl;
+  f_gen_ << indent() << "thrift::server::handle_process_result(&message_ident, res, o_prot).await" << endl;
 
   indent_down();
   f_gen_ << indent() << "}" << endl;
@@ -2610,7 +2611,7 @@ void t_rs_generator::render_sync_process_delegation_functions(t_service *tservic
     string function_name("process_" + rust_snake_case(tfunc->get_name()));
     f_gen_
       << indent()
-      << "fn " << function_name
+      << "async fn " << function_name
       << "(&self, "
       << "incoming_sequence_number: i32, "
       << "i_prot: &mut dyn TInputProtocol, "
@@ -2628,7 +2629,7 @@ void t_rs_generator::render_sync_process_delegation_functions(t_service *tservic
       << "incoming_sequence_number, "
       << "i_prot, "
       << "o_prot"
-      << ")"
+      << ").await;"
       << endl;
 
     indent_down();
@@ -2651,7 +2652,7 @@ void t_rs_generator::render_process_match_statements(t_service* tservice) {
     f_gen_
       << indent()
       << "self.process_" << rust_snake_case(tfunc->get_name())
-      << "(message_ident.sequence_number, i_prot, o_prot)"
+      << "(message_ident.sequence_number, i_prot, o_prot).await"
       << endl;
     indent_down();
     f_gen_ << indent() << "}," << endl;
@@ -2674,7 +2675,7 @@ void t_rs_generator::render_sync_process_function(t_function *tfunc, const strin
 
   f_gen_
     << indent()
-    << "pub fn process_" << rust_snake_case(tfunc->get_name())
+    << "pub async fn process_" << rust_snake_case(tfunc->get_name())
     << "<H: " << handler_type << ">"
     << "(handler: &H, "
     << sequence_number_param << ": i32, "
@@ -2736,11 +2737,11 @@ void t_rs_generator::render_sync_handler_succeeded(t_function *tfunc) {
       << "TMessageType::Reply, "
       << "incoming_sequence_number);"
       << endl;
-    f_gen_ << indent() << "o_prot.write_message_begin(&message_ident)?;" << endl;
+    f_gen_ << indent() << "o_prot.write_message_begin(&message_ident).await?;" << endl;
     f_gen_ << indent() << "let ret = " << handler_successful_return_struct(tfunc) <<";" << endl;
-    f_gen_ << indent() << "ret.write_to_out_protocol(o_prot)?;" << endl;
-    f_gen_ << indent() << "o_prot.write_message_end()?;" << endl;
-    f_gen_ << indent() << "o_prot.flush()" << endl;
+    f_gen_ << indent() << "ret.write_to_out_protocol(o_prot).await?;" << endl;
+    f_gen_ << indent() << "o_prot.write_message_end().await?;" << endl;
+    f_gen_ << indent() << "o_prot.flush().await" << endl;
   }
 }
 
@@ -2840,10 +2841,10 @@ void t_rs_generator::render_sync_handler_failed_user_exception_branch(t_function
       << "TMessageType::Reply, "
       << "incoming_sequence_number);"
       << endl;
-    f_gen_ << indent() << "o_prot.write_message_begin(&message_ident)?;" << endl;
-    f_gen_ << indent() << "ret_err.write_to_out_protocol(o_prot)?;" << endl;
-    f_gen_ << indent() << "o_prot.write_message_end()?;" << endl;
-    f_gen_ << indent() << "o_prot.flush()" << endl;
+    f_gen_ << indent() << "o_prot.write_message_begin(&message_ident).await?;" << endl;
+    f_gen_ << indent() << "ret_err.write_to_out_protocol(o_prot).await?;" << endl;
+    f_gen_ << indent() << "o_prot.write_message_end().await?;" << endl;
+    f_gen_ << indent() << "o_prot.flush().await" << endl;
 
     indent_down();
 
@@ -2899,10 +2900,10 @@ void t_rs_generator::render_sync_handler_send_exception_response(t_function *tfu
       << "TMessageType::Exception, "
       << "incoming_sequence_number);"
       << endl;
-  f_gen_ << indent() << "o_prot.write_message_begin(&message_ident)?;" << endl;
-  f_gen_ << indent() << "thrift::Error::write_application_error_to_out_protocol(&" << err_var << ", o_prot)?;" << endl;
-  f_gen_ << indent() << "o_prot.write_message_end()?;" << endl;
-  f_gen_ << indent() << "o_prot.flush()" << endl;
+  f_gen_ << indent() << "o_prot.write_message_begin(&message_ident).await?;" << endl;
+  f_gen_ << indent() << "thrift::Error::write_application_error_to_out_protocol(&" << err_var << ", o_prot).await?;" << endl;
+  f_gen_ << indent() << "o_prot.write_message_end().await?;" << endl;
+  f_gen_ << indent() << "o_prot.flush().await" << endl;
 }
 
 string t_rs_generator::handler_successful_return_struct(t_function* tfunc) {
