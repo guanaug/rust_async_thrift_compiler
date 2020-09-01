@@ -1,11 +1,8 @@
-typedef i32 type_a
-typedef i64 type_b
-
 const i32 test_const = 5;
 
 union Number {
-    1: type_a a,
-    2: type_b b
+    1: i32 a,
+    2: i64 b
 }
 
 enum Operator{
