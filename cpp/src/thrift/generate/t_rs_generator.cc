@@ -2622,6 +2622,7 @@ void t_rs_generator::render_sync_process_delegation_functions(t_service *tservic
       << "o_prot: &mut (dyn TAsyncOutputProtocol + Send)) "
       << "-> async_thrift::Result<()> {"
       << endl;
+      
     indent_up();
 
     f_gen_
