@@ -907,7 +907,7 @@ void t_rs_generator::render_enum_impl(const string& enum_name) {
 
   f_gen_
     << indent()
-    << "pub fn write_to_out_protocol(&self, o_prot: &mut dyn TOutputProtocol) -> async_thrift::Result<()> {"
+    << "pub fn write_to_out_protocol(&self, o_prot: &mut dyn TAsyncOutputProtocol) -> async_thrift::Result<()> {"
     << endl;
   indent_up();
   f_gen_ << indent() << "o_prot.write_i32(*self as i32)" << endl;
@@ -916,7 +916,7 @@ void t_rs_generator::render_enum_impl(const string& enum_name) {
 
   f_gen_
     << indent()
-    << "pub fn read_from_in_protocol(i_prot: &mut dyn TInputProtocol) -> async_thrift::Result<" << enum_name << "> {"
+    << "pub fn read_from_in_protocol(i_prot: &mut dyn TAsyncInputProtocol) -> async_thrift::Result<" << enum_name << "> {"
     << endl;
   indent_up();
 
@@ -1407,7 +1407,7 @@ void t_rs_generator::render_struct_sync_write(
   f_gen_
     << indent()
     << visibility_qualifier(struct_type)
-    << "async fn write_to_out_protocol(&self, o_prot: &mut (dyn TOutputProtocol + Send)) -> async_thrift::Result<()> {"
+    << "async fn write_to_out_protocol(&self, o_prot: &mut (dyn TAsyncOutputProtocol + Send)) -> async_thrift::Result<()> {"
     << endl;
   indent_up();
 
@@ -1439,7 +1439,7 @@ void t_rs_generator::render_struct_sync_write(
 void t_rs_generator::render_union_sync_write(const string &union_name, t_struct *tstruct) {
   f_gen_
     << indent()
-    << "pub fn write_to_out_protocol(&self, o_prot: &mut dyn TOutputProtocol) -> async_thrift::Result<()> {"
+    << "pub fn write_to_out_protocol(&self, o_prot: &mut dyn TAsyncOutputProtocol+Send) -> async_thrift::Result<()> {"
     << endl;
   indent_up();
 
@@ -1942,7 +1942,7 @@ void t_rs_generator::render_type_sync_read(const string &type_var, t_type *ttype
     render_type_sync_read(type_var, ttypedef->get_type(), ttypedef->is_forward_typedef());
     return;
   } else if (ttype->is_enum() || ttype->is_struct() || ttype->is_xception()) {
-    string read_call(to_rust_type(ttype) + "::read_from_in_protocol(i_prot)?");
+    string read_call(to_rust_type(ttype) + "::read_from_in_protocol(i_prot).await?");
     read_call = is_boxed ? "Box::new(" + read_call + ")" : read_call;
     f_gen_
       << indent()
@@ -2618,8 +2618,8 @@ void t_rs_generator::render_sync_process_delegation_functions(t_service *tservic
       << "async fn " << function_name
       << "(&self, "
       << "incoming_sequence_number: i32, "
-      << "i_prot: &mut dyn TInputProtocol, "
-      << "o_prot: &mut dyn TOutputProtocol) "
+      << "i_prot: &mut (dyn TAsyncInputProtocol + Send), "
+      << "o_prot: &mut (dyn TAsyncOutputProtocol + Send)) "
       << "-> async_thrift::Result<()> {"
       << endl;
     indent_up();
@@ -2633,7 +2633,7 @@ void t_rs_generator::render_sync_process_delegation_functions(t_service *tservic
       << "incoming_sequence_number, "
       << "i_prot, "
       << "o_prot"
-      << ").await;"
+      << ").await"
       << endl;
 
     indent_down();
