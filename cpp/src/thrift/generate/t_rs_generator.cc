@@ -556,7 +556,6 @@ void t_rs_generator::render_attributes_and_includes() {
   // add standard includes
   f_gen_ << "extern crate async_thrift;" << endl;
   f_gen_ << endl;
-//  f_gen_ << "use async_thrift::OrderedFloat;" << endl;
   f_gen_ << "use std::cell::RefCell;" << endl;
   f_gen_ << "use std::collections::{BTreeMap, BTreeSet};" << endl;
   f_gen_ << "use std::convert::{From, TryFrom};" << endl;
@@ -574,8 +573,8 @@ void t_rs_generator::render_attributes_and_includes() {
   f_gen_ << "use async_thrift::protocol::verify_expected_service_call;" << endl;
   f_gen_ << "use async_thrift::protocol::verify_required_field_exists;" << endl;
   f_gen_ << "use async_trait::async_trait;" << endl;
-  // TODO use self::async_thrift ???
-  f_gen_ << "use self::async_thrift::server::TAsyncProcessor;" << endl;
+  f_gen_ << "use async_thrift::server::TAsyncProcessor;" << endl;
+  f_gen_ << "use async_thrift::OrderedFloat;" << endl;
   f_gen_ << endl;
 
   // add all the program includes
